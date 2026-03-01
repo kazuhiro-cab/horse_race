@@ -1,4 +1,0 @@
-[
-  {"race_key":"JRA-2026-03-01-NAK-01","org":"JRA","date":"2026-03-01","venue":"中山","race_no":1,"distance_m":1200,"surface":"TURF","going":"GOOD","field_size":3,"start_time":"10:05","grade":"条件","fetched_at":"2026-03-01T06:00:00"},
-  {"race_key":"NAR-2026-03-01-OI-01","org":"NAR","date":"2026-03-01","venue":"大井","race_no":1,"distance_m":1400,"surface":"DIRT","going":null,"field_size":3,"start_time":"12:00","grade":"条件","fetched_at":"2026-03-01T06:00:00"}
-]
