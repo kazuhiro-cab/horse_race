@@ -1,19 +1,32 @@
-# keiba-predictor v3.1
+# keiba-predictor
 
-自動取得データ駆動・入力最小・トータルプラス志向の競馬予想ソフトです。v3.1ではCLIを廃止し、PySide6 GUIへ全面移行しました。
+自動取得データ駆動・入力最小・トータルプラス志向の競馬予想CLIです。
 
-## 起動手順（Windows）
+## セットアップ
 
-1. `setup.bat` をダブルクリックして仮想環境を構築する（初回のみ）
-2. `start.bat` をダブルクリックしてアプリを起動する
+```bash
+pip install -r requirements.txt
+python -m app fetch --date 2026-03-01 --org all
+python -m app snapshot_odds --date 2026-03-01 --mode prevday_last
+python -m app
+```
 
-## GUI画面構成
+Playwright実データ取得を有効にする場合:
 
-- レース一覧：日付選択、主催フィルタ、レースクリックで予想画面へ遷移
-- 予想：買い目、推定確率、EV、推奨賭け金、注意文を表示
-- バックテスト：期間選択→実行ボタン→結果テーブルと資金推移グラフ表示
-- 設定：bankroll / odds_mode / org / market をフォームで変更
-- スケジューラ：起動/停止、次回実行時刻、実行ログ表示
+```bash
+pip install playwright
+playwright install chromium
+```
+
+## コマンド
+
+- `python -m app` : 全自動バッチモード
+- `python -m app list [--date DATE] [--org ORG]`
+- `python -m app predict --race RACE_KEY [--odds_mode MODE] [--bankroll AMOUNT]`
+- `python -m app fetch [--date DATE] [--org ORG]`
+- `python -m app snapshot_odds [--date DATE] [--mode MODE]`
+- `python -m app backtest --from DATE --to DATE [--market MARKET]`
+- `python -m app scheduler`
 
 ## スクレイピングと規約上の注意
 
@@ -25,28 +38,14 @@
 
 ## EV表示の注意文
 
+本ソフトのEV表示には以下を必ず添付します。
+
 ```text
 [注意] このEVは {captured_at} 時点のオッズを基準にした評価値です。
        当日のオッズは変動するため、実際のEVは異なります。
        EV > 1.0 は長期的な期待値の優位性を示すものであり、
        個別レースの的中を保証するものではありません。
 ```
-
-## v3.1 受け入れ基準（更新）
-
-- アプリ起動後、メイン画面の「全自動予想」ボタンを押すと当日全レースの予想が実行される
-- レース一覧画面でレースをクリックすると予想画面へ遷移する
-- バックテスト画面で期間を選択して「実行」ボタンを押すと結果が表示される
-
-## v3.1 実装順序追加
-
-19. `app/gui/main_window.py`（メインウィンドウ・タブ構成）
-20. `app/gui/race_list_view.py`
-21. `app/gui/predict_view.py`
-22. `app/gui/backtest_view.py`
-23. `app/gui/settings_view.py`
-24. `app/gui/scheduler_view.py`
-25. `setup.bat` と `start.bat`
 
 ## DataLab移行手順
 
