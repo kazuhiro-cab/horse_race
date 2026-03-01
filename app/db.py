@@ -37,6 +37,16 @@ def init_db(db_path: Path | None = None) -> None:
         con.executescript(schema)
 
 
+
+
+def reset_db(db_path: Path | None = None) -> Path:
+    resolved = _resolve_db_path(db_path)
+    if resolved.exists():
+        resolved.unlink()
+    init_db(resolved)
+    return resolved
+
+
 def upsert_races(rows: Iterable[dict], db_path: Path | None = None) -> None:
     q = """
     INSERT OR REPLACE INTO races

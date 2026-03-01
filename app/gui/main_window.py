@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import sys
 
-from PySide6.QtWidgets import QApplication, QMainWindow, QTabWidget
+from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QTabWidget
 
+from app import db
 from app.pipeline.predict import predict_race
 from app.gui.backtest_view import BacktestView
 from app.gui.predict_view import PredictView
@@ -34,6 +35,7 @@ class MainWindow(QMainWindow):
 
         self.race_list.race_selected.connect(self._predict_selected_race)
         self.race_list.run_auto_prediction.connect(self._run_auto_prediction)
+        self.settings_view.reset_db_requested.connect(self._reset_database)
         self.race_list.load_races()
 
     def _predict_selected_race(self, race: dict):

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QComboBox, QDoubleSpinBox, QFormLayout, QGroupBox, QPushButton, QVBoxLayout, QWidget
 
 
@@ -14,6 +15,7 @@ class AppSettings:
 
 
 class SettingsView(QWidget):
+    reset_db_requested = Signal()
     def __init__(self):
         super().__init__()
         self._settings = AppSettings()
@@ -41,11 +43,15 @@ class SettingsView(QWidget):
         self.save_btn = QPushButton("設定を保存")
         self.save_btn.clicked.connect(self._save)
 
+        self.reset_db_btn = QPushButton("DB初期化")
+        self.reset_db_btn.clicked.connect(self.reset_db_requested.emit)
+
         box = QGroupBox("設定")
         box.setLayout(form)
         layout = QVBoxLayout()
         layout.addWidget(box)
         layout.addWidget(self.save_btn)
+        layout.addWidget(self.reset_db_btn)
         layout.addStretch(1)
         self.setLayout(layout)
 
