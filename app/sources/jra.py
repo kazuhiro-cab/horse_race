@@ -10,9 +10,11 @@ class JraSource(BaseSource):
 
     def __init__(self):
         self.mock = MockSource()
+        self.live_mode = False  # Playwright実装時にTrueへ切替
 
     def _throttle(self):
-        time.sleep(REQUEST_INTERVAL_SEC)
+        if self.live_mode:
+            time.sleep(REQUEST_INTERVAL_SEC)
 
     def fetch_race_list(self, date: str, org: str) -> list[dict]:
         self._throttle()

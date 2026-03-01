@@ -14,6 +14,7 @@ def test_fetch_predict_pipeline_mock(tmp_path, monkeypatch):
 
     races = db.fetch_races(date=d)
     assert races
+    assert len(races) >= 36
     out = predict_race(races[0]["race_key"], odds_mode="prevday_last", bankroll=10000)
     assert "bets" in out
 
