@@ -1,0 +1,302 @@
+{
+  "H001": [
+    {
+      "horse_key": "H001",
+      "race_date": "2026-02-01",
+      "org": "JRA",
+      "venue": "中山",
+      "distance_m": 1200,
+      "surface": "TURF",
+      "going": "GOOD",
+      "finish_pos": 1,
+      "field_size": 16,
+      "time_sec": 70.5,
+      "passing": "2-2-1-1",
+      "last3f_sec": 34.8,
+      "weight_carried": 55.0,
+      "jockey_name": "騎手A",
+      "class_label": "1勝",
+      "data_missing_flags": "{}"
+    }
+  ],
+  "H002": [
+    {
+      "horse_key": "H002",
+      "race_date": "2026-02-01",
+      "org": "JRA",
+      "venue": "東京",
+      "distance_m": 1800,
+      "surface": "DIRT",
+      "going": "HEAVY",
+      "finish_pos": 8,
+      "field_size": 16,
+      "time_sec": 110.5,
+      "passing": "10-10-9-8",
+      "last3f_sec": 38.0,
+      "weight_carried": 55.0,
+      "jockey_name": "騎手B",
+      "class_label": "1勝",
+      "data_missing_flags": "{}"
+    }
+  ],
+  "H003": [
+    {
+      "horse_key": "H003",
+      "race_date": "2026-02-15",
+      "org": "JRA",
+      "venue": "中京",
+      "distance_m": 1200,
+      "surface": "TURF",
+      "going": "GOOD",
+      "finish_pos": 3,
+      "field_size": 12,
+      "time_sec": 71.2,
+      "passing": "3-3-3-3",
+      "last3f_sec": 35.1,
+      "weight_carried": 54.0,
+      "jockey_name": "騎手C",
+      "class_label": "1勝",
+      "data_missing_flags": "{}"
+    }
+  ],
+  "N001": [
+    {
+      "horse_key": "N001",
+      "race_date": "2026-02-10",
+      "org": "NAR",
+      "venue": "大井",
+      "distance_m": 1400,
+      "surface": "DIRT",
+      "going": null,
+      "finish_pos": 5,
+      "field_size": 12,
+      "time_sec": null,
+      "passing": null,
+      "last3f_sec": null,
+      "weight_carried": 54.0,
+      "jockey_name": "騎手N1",
+      "class_label": null,
+      "data_missing_flags": "{\"time_sec\":true,\"going\":true,\"passing\":true,\"last3f_sec\":true}"
+    }
+  ],
+  "N002": [
+    {
+      "horse_key": "N002",
+      "race_date": "2026-02-10",
+      "org": "NAR",
+      "venue": "大井",
+      "distance_m": 1400,
+      "surface": "DIRT",
+      "going": null,
+      "finish_pos": 2,
+      "field_size": 12,
+      "time_sec": null,
+      "passing": null,
+      "last3f_sec": null,
+      "weight_carried": 56.0,
+      "jockey_name": "騎手N2",
+      "class_label": null,
+      "data_missing_flags": "{\"time_sec\":true,\"going\":true,\"passing\":true,\"last3f_sec\":true}"
+    }
+  ],
+  "N003": [
+    {
+      "horse_key": "N003",
+      "race_date": "2026-02-10",
+      "org": "NAR",
+      "venue": "大井",
+      "distance_m": 1400,
+      "surface": "DIRT",
+      "going": null,
+      "finish_pos": 9,
+      "field_size": 12,
+      "time_sec": null,
+      "passing": null,
+      "last3f_sec": null,
+      "weight_carried": 55.0,
+      "jockey_name": "騎手N3",
+      "class_label": null,
+      "data_missing_flags": "{\"time_sec\":true,\"going\":true,\"passing\":true,\"last3f_sec\":true}"
+    }
+  ],
+  "H021": [
+    {
+      "horse_key": "H021",
+      "race_date": "2026-02-01",
+      "org": "JRA",
+      "venue": "中山",
+      "distance_m": 1200,
+      "surface": "TURF",
+      "going": "GOOD",
+      "finish_pos": 1,
+      "field_size": 16,
+      "time_sec": 70.5,
+      "passing": "2-2-1-1",
+      "last3f_sec": 34.8,
+      "weight_carried": 55.0,
+      "jockey_name": "騎手A",
+      "class_label": "1勝",
+      "data_missing_flags": "{}"
+    }
+  ],
+  "H031": [
+    {
+      "horse_key": "H031",
+      "race_date": "2026-02-01",
+      "org": "JRA",
+      "venue": "中山",
+      "distance_m": 1200,
+      "surface": "TURF",
+      "going": "GOOD",
+      "finish_pos": 1,
+      "field_size": 16,
+      "time_sec": 70.5,
+      "passing": "2-2-1-1",
+      "last3f_sec": 34.8,
+      "weight_carried": 55.0,
+      "jockey_name": "騎手A",
+      "class_label": "1勝",
+      "data_missing_flags": "{}"
+    }
+  ],
+  "N021": [
+    {
+      "horse_key": "N021",
+      "race_date": "2026-02-10",
+      "org": "NAR",
+      "venue": "大井",
+      "distance_m": 1400,
+      "surface": "DIRT",
+      "going": null,
+      "finish_pos": 5,
+      "field_size": 12,
+      "time_sec": null,
+      "passing": null,
+      "last3f_sec": null,
+      "weight_carried": 54.0,
+      "jockey_name": "騎手N1",
+      "class_label": null,
+      "data_missing_flags": "{\"time_sec\":true,\"going\":true,\"passing\":true,\"last3f_sec\":true}"
+    }
+  ],
+  "H022": [
+    {
+      "horse_key": "H022",
+      "race_date": "2026-02-01",
+      "org": "JRA",
+      "venue": "東京",
+      "distance_m": 1800,
+      "surface": "DIRT",
+      "going": "HEAVY",
+      "finish_pos": 8,
+      "field_size": 16,
+      "time_sec": 110.5,
+      "passing": "10-10-9-8",
+      "last3f_sec": 38.0,
+      "weight_carried": 55.0,
+      "jockey_name": "騎手B",
+      "class_label": "1勝",
+      "data_missing_flags": "{}"
+    }
+  ],
+  "H032": [
+    {
+      "horse_key": "H032",
+      "race_date": "2026-02-01",
+      "org": "JRA",
+      "venue": "東京",
+      "distance_m": 1800,
+      "surface": "DIRT",
+      "going": "HEAVY",
+      "finish_pos": 8,
+      "field_size": 16,
+      "time_sec": 110.5,
+      "passing": "10-10-9-8",
+      "last3f_sec": 38.0,
+      "weight_carried": 55.0,
+      "jockey_name": "騎手B",
+      "class_label": "1勝",
+      "data_missing_flags": "{}"
+    }
+  ],
+  "N022": [
+    {
+      "horse_key": "N022",
+      "race_date": "2026-02-10",
+      "org": "NAR",
+      "venue": "大井",
+      "distance_m": 1400,
+      "surface": "DIRT",
+      "going": null,
+      "finish_pos": 2,
+      "field_size": 12,
+      "time_sec": null,
+      "passing": null,
+      "last3f_sec": null,
+      "weight_carried": 56.0,
+      "jockey_name": "騎手N2",
+      "class_label": null,
+      "data_missing_flags": "{\"time_sec\":true,\"going\":true,\"passing\":true,\"last3f_sec\":true}"
+    }
+  ],
+  "H023": [
+    {
+      "horse_key": "H023",
+      "race_date": "2026-02-15",
+      "org": "JRA",
+      "venue": "中京",
+      "distance_m": 1200,
+      "surface": "TURF",
+      "going": "GOOD",
+      "finish_pos": 3,
+      "field_size": 12,
+      "time_sec": 71.2,
+      "passing": "3-3-3-3",
+      "last3f_sec": 35.1,
+      "weight_carried": 54.0,
+      "jockey_name": "騎手C",
+      "class_label": "1勝",
+      "data_missing_flags": "{}"
+    }
+  ],
+  "H033": [
+    {
+      "horse_key": "H033",
+      "race_date": "2026-02-15",
+      "org": "JRA",
+      "venue": "中京",
+      "distance_m": 1200,
+      "surface": "TURF",
+      "going": "GOOD",
+      "finish_pos": 3,
+      "field_size": 12,
+      "time_sec": 71.2,
+      "passing": "3-3-3-3",
+      "last3f_sec": 35.1,
+      "weight_carried": 54.0,
+      "jockey_name": "騎手C",
+      "class_label": "1勝",
+      "data_missing_flags": "{}"
+    }
+  ],
+  "N023": [
+    {
+      "horse_key": "N023",
+      "race_date": "2026-02-10",
+      "org": "NAR",
+      "venue": "大井",
+      "distance_m": 1400,
+      "surface": "DIRT",
+      "going": null,
+      "finish_pos": 9,
+      "field_size": 12,
+      "time_sec": null,
+      "passing": null,
+      "last3f_sec": null,
+      "weight_carried": 55.0,
+      "jockey_name": "騎手N3",
+      "class_label": null,
+      "data_missing_flags": "{\"time_sec\":true,\"going\":true,\"passing\":true,\"last3f_sec\":true}"
+    }
+  ]
+}
