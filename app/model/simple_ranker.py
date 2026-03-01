@@ -14,9 +14,11 @@ class SimpleRanker(BaseModel):
             from sklearn.linear_model import LogisticRegression
 
             self._sk_model = LogisticRegression()
-            self._sk_model.classes_ = [0, 1]
-            self._sk_model.coef_ = [[self.default_coef[k] for k in self.feature_names]]
-            self._sk_model.intercept_ = [0.0]
+            import numpy as np
+
+            self._sk_model.classes_ = np.array([0, 1])
+            self._sk_model.coef_ = np.array([[self.default_coef[k] for k in self.feature_names]], dtype=float)
+            self._sk_model.intercept_ = np.array([0.0], dtype=float)
             self._sk_model.n_features_in_ = len(self.feature_names)
         except Exception:
             self._sk_model = None
