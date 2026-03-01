@@ -1,0 +1,12 @@
+{
+  "JRA-2026-03-01-NAK-01": [
+    {"race_key":"JRA-2026-03-01-NAK-01","horse_key":"H001","horse_name":"サンプルスター","gate":1,"number":1,"weight_carried":55.0,"jockey_name":"騎手A","trainer_name":"調教師A","horse_weight_kg":480,"horse_weight_diff":2},
+    {"race_key":"JRA-2026-03-01-NAK-01","horse_key":"H002","horse_name":"モックフラッシュ","gate":2,"number":2,"weight_carried":57.0,"jockey_name":"騎手B","trainer_name":"調教師B","horse_weight_kg":500,"horse_weight_diff":10},
+    {"race_key":"JRA-2026-03-01-NAK-01","horse_key":"H003","horse_name":"テストウインド","gate":3,"number":3,"weight_carried":54.0,"jockey_name":"騎手C","trainer_name":"調教師C","horse_weight_kg":470,"horse_weight_diff":-4}
+  ],
+  "NAR-2026-03-01-OI-01": [
+    {"race_key":"NAR-2026-03-01-OI-01","horse_key":"N001","horse_name":"ナーモック1","gate":1,"number":1,"weight_carried":54.0,"jockey_name":"騎手N1","trainer_name":"調教師N1","horse_weight_kg":null,"horse_weight_diff":null},
+    {"race_key":"NAR-2026-03-01-OI-01","horse_key":"N002","horse_name":"ナーモック2","gate":2,"number":2,"weight_carried":56.0,"jockey_name":"騎手N2","trainer_name":"調教師N2","horse_weight_kg":null,"horse_weight_diff":null},
+    {"race_key":"NAR-2026-03-01-OI-01","horse_key":"N003","horse_name":"ナーモック3","gate":3,"number":3,"weight_carried":55.0,"jockey_name":"騎手N3","trainer_name":"調教師N3","horse_weight_kg":null,"horse_weight_diff":null}
+  ]
+}
