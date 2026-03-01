@@ -50,6 +50,11 @@ class MainWindow(QMainWindow):
             race = self.race_list._races[i]
             self._predict_selected_race(race)
 
+    def _reset_database(self):
+        db.reset_db()
+        self.race_list.load_races()
+        QMessageBox.information(self, "DB初期化", "データベースを初期化しました。")
+
 
 def run():
     app = QApplication(sys.argv)
