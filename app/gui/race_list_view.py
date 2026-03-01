@@ -47,12 +47,20 @@ class RaceListView(QWidget):
     def _selected_date(self) -> str:
         return self.date_edit.date().toString("yyyy-MM-dd")
 
+    def _looks_incomplete(self, races: list[dict]) -> bool:
+        if not races:
+            return True
+        by_group: dict[tuple[str, str], set[int]] = {}
+        for r in races:
+            by_group.setdefault((r["org"], r["venue"]), set()).add(int(r["race_no"]))
+        return any(len(v) < 12 for v in by_group.values())
+
     def load_races(self):
         d = self._selected_date()
         org = self.org.currentText()
         db.init_db()
         races = db.fetch_races(date=d, org=org)
-        if not races:
+        if self._looks_incomplete(races):
             fetch_for_date(d, org_to_en(org))
             snapshot_odds(d, mode="前日最終", org=org)
             races = db.fetch_races(date=d, org=org)

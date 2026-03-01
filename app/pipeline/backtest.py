@@ -8,11 +8,18 @@ from app.config import LOG_DIR
 from app.pipeline.result import settle_pending_results
 
 
+def _normalize_backtest_range(from_date: str, to_date: str) -> tuple[str, str]:
+    start = from_date if "T" in from_date else f"{from_date}T00:00:00"
+    end = to_date if "T" in to_date else f"{to_date}T23:59:59"
+    return start, end
+
+
 def run_backtest(from_date: str, to_date: str, market: str = "全券種") -> dict:
     db.init_db()
     settle_pending_results()
+    start, end = _normalize_backtest_range(from_date, to_date)
     with db.connect() as con:
-        rows = [dict(r) for r in con.execute("SELECT * FROM bankroll_log WHERE logged_at >= ? AND logged_at <= ?", (from_date, to_date)).fetchall()]
+        rows = [dict(r) for r in con.execute("SELECT * FROM bankroll_log WHERE logged_at >= ? AND logged_at <= ?", (start, end)).fetchall()]
 
     if market not in ("all", "全券種"):
         rows = [r for r in rows if r["market"] == market]
