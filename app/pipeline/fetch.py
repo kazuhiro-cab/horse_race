@@ -51,11 +51,15 @@ def fetch_for_date(date: str, org: str = "all") -> bool:
     for race in races_all:
         src = MockSource() if (mock_mode or race["org"] == "地方競馬") else JraSource()
         entries = src.fetch_entries(race["race_key"])
+        race["field_size"] = len(entries)
         db.upsert_entries(entries)
         pp_rows = []
         for e in entries:
             pp_rows.extend(src.fetch_past_performances(e["horse_key"]))
         db.insert_past_performances(pp_rows)
+
+    # entries取得後の確定頭数を反映
+    db.upsert_races(races_all)
     return mock_mode
 
 

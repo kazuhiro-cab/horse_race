@@ -25,7 +25,7 @@ ODDS_MODE_EN_TO_JA = {
 }
 ODDS_MODE_JA_TO_EN = {v: k for k, v in ODDS_MODE_EN_TO_JA.items()}
 
-SURFACE_EN_TO_JA = {"TURF": "芝", "DIRT": "ダート"}
+SURFACE_EN_TO_JA = {"TURF": "芝", "DIRT": "ダート", "JUMP": "障害"}
 GOING_EN_TO_JA = {"FIRM": "良", "GOOD": "稍重", "YIELDING": "重", "SOFT": "不良", "HEAVY": "不良"}
 RESULT_EN_TO_JA = {"WIN": "的中", "LOSE": "ハズレ", "PENDING": "未確定"}
 

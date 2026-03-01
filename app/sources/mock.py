@@ -1,5 +1,6 @@
 import json
 import re
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from app.config import SAMPLES_DIR
@@ -15,6 +16,7 @@ class MockSource(BaseSource):
         self._odds = self._load_json("odds.json")
         self._results = self._load_json("results.json")
         self._expand_full_race_card(final_race_no=12)
+        self._normalize_race_cards()
 
     def _load_json(self, name: str):
         return json.loads((self.sample_dir / name).read_text(encoding="utf-8"))
@@ -56,6 +58,95 @@ class MockSource(BaseSource):
                 self._results[generated["race_key"]] = dict(self._results.get(template["race_key"], {"status": "未確定", "payouts": {}}))
 
         self._races.extend(new_races)
+
+    def _normalize_race_cards(self) -> None:
+        """モックの見た目を実運用に近づける（頭数/発走時刻/馬場種別）。"""
+        grouped: dict[tuple[str, str, str], list[dict]] = {}
+        for race in self._races:
+            grouped.setdefault((race["date"], race["org"], race["venue"]), []).append(race)
+
+        for (_, org, _), races in grouped.items():
+            races.sort(key=lambda x: x["race_no"])
+            base_time = datetime(2000, 1, 1, 9, 50)
+            for race in races:
+                no = int(race["race_no"])
+                # 頭数: 10〜18を循環（すべて3頭になる問題を回避）
+                race["field_size"] = 10 + ((no - 1) % 9)
+                race["start_time"] = (base_time + timedelta(minutes=(no - 1) * 30)).strftime("%H:%M")
+
+                if org == "JRA":
+                    if no % 6 == 0:
+                        race["surface"] = "JUMP"
+                        race["going"] = "GOOD"
+                    else:
+                        race["surface"] = "TURF" if no % 3 != 0 else "DIRT"
+                        race["going"] = "FIRM" if race["surface"] == "TURF" else "GOOD"
+                else:
+                    race["surface"] = "DIRT"
+                    race["going"] = "GOOD"
+
+                self._ensure_entries_match_field_size(race)
+                self._ensure_odds_for_race(race)
+
+    def _ensure_entries_match_field_size(self, race: dict) -> None:
+        race_key = race["race_key"]
+        need = int(race["field_size"])
+        current = self._entries.get(race_key, [])
+        if len(current) == need:
+            return
+
+        seed = current[0] if current else {
+            "horse_name": "モックホース",
+            "weight_carried": 55.0,
+            "jockey_name": "モック騎手",
+            "trainer_name": "モック調教師",
+            "horse_weight_kg": 470,
+            "horse_weight_diff": 0,
+        }
+
+        rebuilt = []
+        for n in range(1, need + 1):
+            gate = ((n - 1) // 2) + 1
+            rebuilt.append(
+                {
+                    "race_key": race_key,
+                    "horse_key": f"{race_key}-H{n:02d}",
+                    "horse_name": f"{seed.get('horse_name', 'モックホース')}{n}",
+                    "gate": gate,
+                    "number": n,
+                    "weight_carried": float((seed.get("weight_carried") if seed.get("weight_carried") is not None else 55.0)) + ((n % 3) - 1) * 0.5,
+                    "jockey_name": seed.get("jockey_name", "モック騎手"),
+                    "trainer_name": seed.get("trainer_name", "モック調教師"),
+                    "horse_weight_kg": float((seed.get("horse_weight_kg") if seed.get("horse_weight_kg") is not None else 470)) + (n % 5),
+                    "horse_weight_diff": float((seed.get("horse_weight_diff") if seed.get("horse_weight_diff") is not None else 0)),
+                }
+            )
+        self._entries[race_key] = rebuilt
+
+    def _ensure_odds_for_race(self, race: dict) -> None:
+        race_key = race["race_key"]
+        size = int(race["field_size"])
+        odds = self._odds.setdefault(race_key, {})
+
+        odds["WIN"] = {str(i): round(max(2.0, 30.0 - i * 1.1), 1) for i in range(1, size + 1)}
+        odds["PLACE"] = {str(i): round(max(2.0, 18.0 - i * 0.5), 1) for i in range(1, size + 1)}
+
+        trio_key = "-".join(map(str, [1, 2, 3]))
+        odds.setdefault("TRIO", {})
+        odds["TRIO"][trio_key] = float(850)
+
+        odds.setdefault("TRIFECTA", {})
+        odds["TRIFECTA"]["1-2-3"] = float(3200)
+        odds["TRIFECTA"]["1-3-2"] = float(2800)
+        odds["TRIFECTA"]["2-1-3"] = float(2600)
+
+        # ペア系
+        pair_payload = {"1-2": 120.0, "1-3": 150.0, "2-3": 180.0}
+        for k in ["BRACKET", "EXACTA", "QUINELLA", "WIDE"]:
+            odds[k] = dict(pair_payload)
+
+        # WIN5 は限定的に保持
+        odds.setdefault("WIN5", {"1-1-1-1-1": 5000.0})
 
     def fetch_race_list(self, date: str, org: str) -> list[dict]:
         rows = [r for r in self._races if r["date"] == date]
