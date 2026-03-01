@@ -7,12 +7,19 @@ from app.model.base import BaseModel
 
 class SimpleRanker(BaseModel):
     def __init__(self):
-        self.coef = {
-            "finish_proxy": -0.7,
-            "distance_fit": 1.3,
-            "weight_carried": -0.05,
-            "rest_weeks": -0.03,
-        }
+        self.feature_names = ["finish_proxy", "distance_fit", "weight_carried", "rest_weeks"]
+        self.default_coef = {"finish_proxy": -0.7, "distance_fit": 1.3, "weight_carried": -0.05, "rest_weeks": -0.03}
+        self._sk_model = None
+        try:
+            from sklearn.linear_model import LogisticRegression
+
+            self._sk_model = LogisticRegression()
+            self._sk_model.classes_ = [0, 1]
+            self._sk_model.coef_ = [[self.default_coef[k] for k in self.feature_names]]
+            self._sk_model.intercept_ = [0.0]
+            self._sk_model.n_features_in_ = len(self.feature_names)
+        except Exception:
+            self._sk_model = None
 
     def _softmax(self, scores: list[float]) -> list[float]:
         m = max(scores)
@@ -21,15 +28,15 @@ class SimpleRanker(BaseModel):
         return [e / z for e in exps]
 
     def predict_win_probs(self, features: list[dict]) -> list[dict]:
-        scores = []
-        for f in features:
-            s = sum(self.coef[k] * f[k] for k in self.coef)
-            s *= f.get("risk_penalty", 1.0)
-            scores.append(s)
+        if self._sk_model is not None:
+            X = [[f[k] for k in self.feature_names] for f in features]
+            scores = [float(x) for x in self._sk_model.decision_function(X)]
+        else:
+            scores = [sum(self.default_coef[k] * f[k] for k in self.feature_names) for f in features]
+
+        scores = [s * f.get("risk_penalty", 1.0) for s, f in zip(scores, features)]
         probs = self._softmax(scores)
-        result = []
-        for f, p in zip(features, probs):
-            result.append({**f, "win_prob": p})
+        result = [{**f, "win_prob": p} for f, p in zip(features, probs)]
         return self._apply_favorite_trust_adjustment(result)
 
     def _apply_favorite_trust_adjustment(self, rows: list[dict]) -> list[dict]:
@@ -50,12 +57,7 @@ class SimpleRanker(BaseModel):
             score -= 0.1
             reasons.append("斤量条件が重い")
 
-        multiplier = 1.0
-        if score < 0.4:
-            multiplier = 1.25
-        elif score < 0.6:
-            multiplier = 1.15
-
+        multiplier = 1.25 if score < 0.4 else 1.15 if score < 0.6 else 1.0
         if multiplier > 1.0 and len(ranked) >= 3:
             ranked[1]["win_prob"] *= multiplier
             ranked[2]["win_prob"] *= multiplier

@@ -36,11 +36,15 @@ class MainWindow(QMainWindow):
         self.race_list.race_selected.connect(self._predict_selected_race)
         self.race_list.run_auto_prediction.connect(self._run_auto_prediction)
         self.settings_view.reset_db_requested.connect(self._reset_database)
-        self.race_list.load_races()
+        self.settings_view._save()
+        try:
+            self.race_list.load_races(use_mock=self.settings_view.get_settings().offline_mode)
+        except Exception:
+            QMessageBox.critical(self, "取得失敗", "実データの取得に失敗しました。ネットワーク接続を確認してください")
 
     def _predict_selected_race(self, race: dict):
         settings = self.settings_view.get_settings()
-        payload = predict_race(race["race_key"], settings.odds_mode, settings.bankroll)
+        payload = predict_race(race["race_key"], settings.odds_mode, settings.bankroll, use_mock=settings.offline_mode)
         title = f"{race['venue']} {race['race_no']}R 予想"
         self.predict_view.show_prediction(title, payload)
         self.tabs.setCurrentWidget(self.predict_view)
@@ -52,7 +56,11 @@ class MainWindow(QMainWindow):
 
     def _reset_database(self):
         db.reset_db()
-        self.race_list.load_races()
+        self.settings_view._save()
+        try:
+            self.race_list.load_races(use_mock=self.settings_view.get_settings().offline_mode)
+        except Exception:
+            QMessageBox.critical(self, "取得失敗", "実データの取得に失敗しました。ネットワーク接続を確認してください")
         QMessageBox.information(self, "DB初期化", "データベースを初期化しました。")
 
 

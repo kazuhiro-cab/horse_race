@@ -37,7 +37,7 @@ def _ordered_pair_probs(win_probs: dict[int, float]) -> dict[str, float]:
             out[f"{a}-{b}"]=win_probs[a]*(win_probs[b]/max(1-win_probs[a],1e-9))
     return out
 
-def predict_race(race_key: str, odds_mode: str = DEFAULT_ODDS_MODE, bankroll: float = DEFAULT_BANKROLL) -> dict:
+def predict_race(race_key: str, odds_mode: str = DEFAULT_ODDS_MODE, bankroll: float = DEFAULT_BANKROLL, use_mock: bool = False) -> dict:
     db.init_db()
     mode_en = odds_mode_to_en(odds_mode) if odds_mode in ("前日最終", "前日発売開始直後", "当日発売開始直後") else odds_mode
     races = [r for r in db.fetch_races() if r["race_key"] == race_key]
@@ -81,7 +81,7 @@ def predict_race(race_key: str, odds_mode: str = DEFAULT_ODDS_MODE, bankroll: fl
     for m in needed:
         snap = db.fetch_latest_odds(race_key, mode_en, m)
         if not snap:
-            snapshot_odds(race["date"], mode=mode_en, org=race["org"])
+            snapshot_odds(race["date"], mode=mode_en, org=race["org"], use_mock=use_mock)
             snap = db.fetch_latest_odds(race_key, mode_en, m)
         snapshots[m] = snap
 

@@ -14,9 +14,9 @@ def _normalize_backtest_range(from_date: str, to_date: str) -> tuple[str, str]:
     return start, end
 
 
-def run_backtest(from_date: str, to_date: str, market: str = "全券種") -> dict:
+def run_backtest(from_date: str, to_date: str, market: str = "全券種", use_mock: bool = False) -> dict:
     db.init_db()
-    settle_pending_results()
+    settle_pending_results(use_mock=use_mock)
     start, end = _normalize_backtest_range(from_date, to_date)
     with db.connect() as con:
         rows = [dict(r) for r in con.execute("SELECT * FROM bankroll_log WHERE logged_at >= ? AND logged_at <= ?", (start, end)).fetchall()]

@@ -55,14 +55,14 @@ class RaceListView(QWidget):
             by_group.setdefault((r["org"], r["venue"]), set()).add(int(r["race_no"]))
         return any(len(v) < 12 for v in by_group.values())
 
-    def load_races(self):
+    def load_races(self, use_mock: bool = False):
         d = self._selected_date()
         org = self.org.currentText()
         db.init_db()
         races = db.fetch_races(date=d, org=org)
         if self._looks_incomplete(races):
-            fetch_for_date(d, org_to_en(org))
-            snapshot_odds(d, mode="前日最終", org=org)
+            fetch_for_date(d, org_to_en(org), use_mock=use_mock)
+            snapshot_odds(d, mode="前日最終", org=org, use_mock=use_mock)
             races = db.fetch_races(date=d, org=org)
 
         races = sorted(races, key=lambda r: (r["org"], r["venue"], r["race_no"]))

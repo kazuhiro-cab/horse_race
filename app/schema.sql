@@ -46,6 +46,9 @@ CREATE TABLE IF NOT EXISTS past_performances (
     weight_carried REAL,
     jockey_name TEXT,
     class_label TEXT,
+    training_time TEXT,
+    training_count INTEGER,
+    pedigree_info TEXT,
     data_missing_flags TEXT
 );
 
@@ -55,6 +58,7 @@ CREATE TABLE IF NOT EXISTS odds_snapshots (
     mode TEXT NOT NULL,
     market TEXT NOT NULL,
     payload_json TEXT NOT NULL,
+    odds_timeline_json TEXT,
     PRIMARY KEY (race_key, captured_at, market),
     FOREIGN KEY (race_key) REFERENCES races(race_key)
 );

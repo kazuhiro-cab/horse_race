@@ -51,6 +51,7 @@ class BacktestView(QWidget):
             self.from_date.date().toString("yyyy-MM-dd"),
             self.to_date.date().toString("yyyy-MM-dd"),
             "all",
+            use_mock=False,
         )
         keys = ["的中率", "回収率", "EV推定精度", "1番人気信頼度スコア精度", "凡走リスクスコア精度"]
         self.table.setRowCount(len(keys))
