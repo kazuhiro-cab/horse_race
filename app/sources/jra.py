@@ -1,12 +1,18 @@
 from __future__ import annotations
 
+import json
+import re
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
+from typing import Any
+from urllib.parse import urljoin
 
 from app.config import REQUEST_INTERVAL_SEC
 from app.sources.base import BaseSource
 
 JRA_VENUES = ["札幌", "函館", "福島", "新潟", "東京", "中山", "中京", "京都", "阪神", "小倉"]
+_SURFACE_VALUES = ("芝", "ダート", "障害")
+_GOING_VALUES = ("良", "稍重", "重", "不良")
 
 
 class JraSource(BaseSource):
@@ -15,71 +21,166 @@ class JraSource(BaseSource):
     def _throttle(self):
         time.sleep(REQUEST_INTERVAL_SEC)
 
-    def _open(self, url: str):
+    def _open(self, url: str) -> str:
         from playwright.sync_api import sync_playwright
 
         pw = sync_playwright().start()
         browser = pw.chromium.launch(headless=True)
         page = browser.new_page()
-        page.goto(url, wait_until="domcontentloaded", timeout=30000)
-        return pw, browser, page
+        try:
+            page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            return page.content()
+        finally:
+            browser.close()
+            pw.stop()
 
-    def _extract_venues(self, html: str) -> list[str]:
-        venues = []
-        for v in JRA_VENUES:
-            if v in html and v not in venues:
-                venues.append(v)
-        return venues
+    def _extract_links(self, html: str, base: str) -> list[str]:
+        links = []
+        for href in re.findall(r'href=["\']([^"\']+)["\']', html):
+            url = urljoin(base, href)
+            if "jra.go.jp" not in url:
+                continue
+            if any(k in url.lower() for k in ["accessd", "accessr", "race", "shutuba", "denma", "syutsuba", "kaisai"]):
+                if url not in links:
+                    links.append(url)
+        return links
+
+    def _extract_json_candidates(self, html: str) -> list[Any]:
+        out: list[Any] = []
+        for script in re.findall(r"<script[^>]*>(.*?)</script>", html, flags=re.DOTALL | re.IGNORECASE):
+            text = script.strip()
+            if not text:
+                continue
+            for m in re.finditer(r"\{.*\}|\[.*\]", text, flags=re.DOTALL):
+                blob = m.group(0)
+                try:
+                    out.append(json.loads(blob))
+                except Exception:
+                    continue
+        return out
+
+    def _collect_dicts(self, obj: Any) -> list[dict]:
+        rows: list[dict] = []
+        if isinstance(obj, dict):
+            rows.append(obj)
+            for v in obj.values():
+                rows.extend(self._collect_dicts(v))
+        elif isinstance(obj, list):
+            for v in obj:
+                rows.extend(self._collect_dicts(v))
+        return rows
+
+    def _norm_race_no(self, val: Any) -> int | None:
+        s = str(val)
+        m = re.search(r"(\d{1,2})", s)
+        if not m:
+            return None
+        n = int(m.group(1))
+        return n if 1 <= n <= 12 else None
+
+    def _norm_distance_surface(self, raw: str) -> tuple[str | None, int | None]:
+        m = re.search(r"(芝|ダート|障害)\s*([0-9]{3,4})\s*m", raw)
+        if not m:
+            return None, None
+        return m.group(1), int(m.group(2))
+
+    def _norm_going(self, raw: str) -> str | None:
+        for g in _GOING_VALUES:
+            if g in raw:
+                return g
+        return None
+
+    def _norm_grade(self, raw: str) -> str | None:
+        m = re.search(r"(G1|G2|G3|J\.G1|J\.G2|J\.G3|L|OP|オープン)", raw, flags=re.IGNORECASE)
+        return m.group(1).upper() if m else None
+
+    def _build_records_from_json(self, payloads: list[Any], date: str) -> list[dict]:
+        records: dict[tuple[str, int], dict] = {}
+        for payload in payloads:
+            for d in self._collect_dicts(payload):
+                merged = " ".join(str(v) for v in d.values() if isinstance(v, (str, int, float)))
+                venue = next((v for v in JRA_VENUES if v in merged), None)
+                race_no = self._norm_race_no(d.get("raceNo") or d.get("race_no") or d.get("race") or merged)
+                if not venue or not race_no:
+                    continue
+                surface, distance = self._norm_distance_surface(merged)
+                going = self._norm_going(merged)
+                tm = re.search(r"(\d{1,2}:\d{2})", merged)
+                fs = re.search(r"(\d{1,2})\s*頭", merged)
+                grade = self._norm_grade(merged)
+                rec = records.setdefault((venue, race_no), {"venue": venue, "race_no": race_no})
+                if surface:
+                    rec["surface"] = surface
+                if distance:
+                    rec["distance_m"] = distance
+                if going:
+                    rec["going"] = going
+                if tm:
+                    rec["start_time"] = tm.group(1)
+                if fs:
+                    rec["field_size"] = int(fs.group(1))
+                if grade:
+                    rec["grade"] = grade
+
+        out = []
+        ymd = datetime.strptime(date, "%Y-%m-%d").strftime("%Y%m%d")
+        for (venue, race_no), rec in sorted(records.items(), key=lambda x: (x[0][0], x[0][1])):
+            required = ["distance_m", "surface", "going", "start_time", "field_size", "grade"]
+            missing = [k for k in required if rec.get(k) in (None, "")]
+            if missing:
+                continue
+            out.append(
+                {
+                    "race_key": f"JRA-{ymd}-{venue}-{race_no:02d}",
+                    "date": date,
+                    "org": "JRA",
+                    "venue": venue,
+                    "race_no": race_no,
+                    "distance_m": int(rec["distance_m"]),
+                    "surface": rec["surface"],
+                    "going": rec["going"],
+                    "start_time": rec["start_time"],
+                    "field_size": int(rec["field_size"]),
+                    "grade": rec["grade"],
+                    "fetched_at": datetime.now().isoformat(timespec="seconds"),
+                }
+            )
+        return out
 
     def fetch_race_list(self, date: str, org: str) -> list[dict]:
         self._throttle()
-        target_date = datetime.strptime(date, "%Y-%m-%d")
-        urls = [
+        seed_urls = [
             "https://www.jra.go.jp/",
             "https://www.jra.go.jp/keiba/calendar/",
-            f"https://www.jra.go.jp/JRADB/accessD.html?date={target_date.strftime('%Y%m%d')}",
+            f"https://www.jra.go.jp/JRADB/accessD.html?date={datetime.strptime(date, '%Y-%m-%d').strftime('%Y%m%d')}",
         ]
 
-        html_parts: list[str] = []
-        for url in urls:
-            pw = browser = page = None
+        html_map: dict[str, str] = {}
+        for url in seed_urls:
             try:
-                pw, browser, page = self._open(url)
-                html_parts.append(page.content())
+                html_map[url] = self._open(url)
             except Exception:
                 continue
-            finally:
-                if browser is not None:
-                    browser.close()
-                if pw is not None:
-                    pw.stop()
 
-        html = "\n".join(html_parts)
-        if not html:
+        for base, html in list(html_map.items()):
+            for link in self._extract_links(html, base)[:80]:
+                if link in html_map:
+                    continue
+                try:
+                    html_map[link] = self._open(link)
+                except Exception:
+                    continue
+
+        if not html_map:
             raise RuntimeError("JRA公式サイト接続失敗")
 
-        venues = self._extract_venues(html)
-        if not venues:
-            raise RuntimeError("JRA開催場の抽出に失敗しました")
+        payloads: list[Any] = []
+        for html in html_map.values():
+            payloads.extend(self._extract_json_candidates(html))
 
-        races: list[dict] = []
-        for venue in venues:
-            for race_no in range(1, 13):
-                start = (datetime(2000, 1, 1, 9, 50) + timedelta(minutes=(race_no - 1) * 30)).strftime("%H:%M")
-                races.append(
-                    {
-                        "race_key": f"JRA-{target_date.strftime('%Y%m%d')}-{venue}-{race_no:02d}",
-                        "date": date,
-                        "org": "JRA",
-                        "venue": venue,
-                        "race_no": race_no,
-                        "distance_m": None,
-                        "surface": None,
-                        "going": None,
-                        "start_time": start,
-                        "field_size": None,
-                    }
-                )
+        races = self._build_records_from_json(payloads, date)
+        if not races:
+            raise RuntimeError("JRAレース情報（距離/馬場/時刻/頭数/グレード）の抽出に失敗しました")
         return races
 
     def fetch_entries(self, race_key: str) -> list[dict]:
