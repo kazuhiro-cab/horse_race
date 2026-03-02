@@ -18,23 +18,15 @@ def _safe_source(org_en: str):
     raise RuntimeError(f"unknown org: {org_en}")
 
 
-def _source_for_race_org(org_label: str):
-    org_en = org_to_en(org_label)
-    if org_en == "JRA":
-        return JraSource()
-    if org_en == "NAR":
-        return NarSource()
-    raise RuntimeError(f"unknown org label: {org_label}")
-
-
 def fetch_for_date(date: str, org: str = "all") -> None:
     db.init_db()
     org_en = org_to_en(org)
     orgs = ["JRA", "NAR"] if org_en.lower() == "all" else [org_en.upper()]
+    src_map = {code: _safe_source(code) for code in orgs}
     races_all = []
 
     for org_code in orgs:
-        src = _safe_source(org_code)
+        src = src_map[org_code]
         races = src.fetch_race_list(date, org_code)
         for r in races:
             r["org"] = org_to_ja(r["org"])
@@ -45,7 +37,7 @@ def fetch_for_date(date: str, org: str = "all") -> None:
     db.upsert_races(races_all)
 
     for race in races_all:
-        src = _source_for_race_org(race["org"])
+        src = src_map[org_to_en(race["org"])]
         entries = src.fetch_entries(race["race_key"])
         race["field_size"] = len(entries) if entries else race.get("field_size")
         if entries:
@@ -68,8 +60,17 @@ def snapshot_odds(date: str, mode: str = "前日最終", org: str = "all") -> No
         races = db.fetch_races(date=date, org=org)
 
     captured_at = datetime.now().isoformat(timespec="seconds")
+    src_map = {"JRA": JraSource(), "NAR": NarSource()}
+    # ensure caches are populated for odds by fetching race list once per org
+    orgs = sorted(set(org_to_en(r["org"]) for r in races))
+    for o in orgs:
+        try:
+            src_map[o].fetch_race_list(date, o)
+        except Exception:
+            pass
+
     for race in races:
-        src = _source_for_race_org(race["org"])
+        src = src_map[org_to_en(race["org"])]
         for market_en in MARKETS_EN:
             if market_en == "WIN5" and org_to_en(race["org"]) != "JRA":
                 continue
