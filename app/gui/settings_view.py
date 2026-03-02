@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QCheckBox, QComboBox, QDoubleSpinBox, QFormLayout, QGroupBox, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QComboBox, QDoubleSpinBox, QFormLayout, QGroupBox, QPushButton, QVBoxLayout, QWidget
 
 
 @dataclass
@@ -12,7 +12,6 @@ class AppSettings:
     odds_mode: str = "前日最終"
     org: str = "全主催"
     market: str = "全券種"
-    offline_mode: bool = False
 
 
 class SettingsView(QWidget):
@@ -36,14 +35,11 @@ class SettingsView(QWidget):
         self.market = QComboBox()
         self.market.addItems(["全券種", "単勝", "複勝", "枠連", "馬連", "馬単", "ワイド", "三連複", "三連単", "WIN5"])
 
-        self.offline_mode = QCheckBox("オフラインモード（テスト用）")
-
         form = QFormLayout()
         form.addRow("手持ち資金", self.bankroll)
         form.addRow("オッズモード", self.odds_mode)
         form.addRow("主催", self.org)
         form.addRow("券種", self.market)
-        form.addRow("モード", self.offline_mode)
 
         self.save_btn = QPushButton("設定を保存")
         self.save_btn.clicked.connect(self._save)
@@ -66,13 +62,7 @@ class SettingsView(QWidget):
             odds_mode=self.odds_mode.currentText(),
             org=self.org.currentText(),
             market=self.market.currentText(),
-            offline_mode=self.offline_mode.isChecked(),
         )
 
     def get_settings(self) -> AppSettings:
         return self._settings
-
-    def set_offline_mode(self, enabled: bool):
-        self.offline_mode.setChecked(enabled)
-        self._save()
-
