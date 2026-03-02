@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 
+from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QTabWidget
 
 from app import db
@@ -38,7 +39,7 @@ class MainWindow(QMainWindow):
         self.settings_view.reset_db_requested.connect(self._reset_database)
 
         self.settings_view._save()
-        self._load_races_or_stop()
+        QTimer.singleShot(0, self._load_races_or_stop)
 
     def _load_races_or_stop(self):
         try:
@@ -61,7 +62,7 @@ class MainWindow(QMainWindow):
     def _reset_database(self):
         db.reset_db()
         self.settings_view._save()
-        self._load_races_or_stop()
+        QTimer.singleShot(0, self._load_races_or_stop)
         QMessageBox.information(self, "DB初期化", "データベースを初期化しました。")
 
 

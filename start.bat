@@ -40,8 +40,8 @@ if errorlevel 1 (
 set "LOG_FILE=%~dp0start_error.log"
 if exist "%LOG_FILE%" del /q "%LOG_FILE%"
 
-echo Launching app...
-"%VENV_PY%" -m app 1>nul 2>"%LOG_FILE%"
+echo Launching app window...
+"%VENV_PY%" -m app 1>"%LOG_FILE%" 2>&1
 if errorlevel 1 (
   echo Application exited with error.
   if exist "%LOG_FILE%" (
