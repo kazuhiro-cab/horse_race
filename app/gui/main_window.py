@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import sys
 
 from PySide6.QtCore import QTimer
@@ -17,6 +18,7 @@ from app.pipeline.predict import predict_race
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self._logger = logging.getLogger(__name__)
         self.setWindowTitle("Keiba Predictor v3.1")
         self.resize(1200, 800)
 
@@ -45,11 +47,17 @@ class MainWindow(QMainWindow):
         try:
             self.race_list.load_races()
         except Exception:
+            self._logger.exception("Failed to load races during startup")
             QMessageBox.critical(self, "取得失敗", "実データの取得に失敗しました。ネットワーク接続を確認してください")
 
     def _predict_selected_race(self, race: dict):
         settings = self.settings_view.get_settings()
-        payload = predict_race(race["race_key"], settings.odds_mode, settings.bankroll)
+        try:
+            payload = predict_race(race["race_key"], settings.odds_mode, settings.bankroll)
+        except Exception:
+            self._logger.exception("Failed to predict race: %s", race.get("race_key"))
+            QMessageBox.critical(self, "予想失敗", "予想処理に失敗しました。ログを確認してください。")
+            return
         title = f"{race['venue']} {race['race_no']}R 予想"
         self.predict_view.show_prediction(title, payload)
         self.tabs.setCurrentWidget(self.predict_view)
@@ -60,7 +68,12 @@ class MainWindow(QMainWindow):
             self._predict_selected_race(race)
 
     def _reset_database(self):
-        db.reset_db()
+        try:
+            db.reset_db()
+        except Exception:
+            self._logger.exception("Failed to reset database")
+            QMessageBox.critical(self, "DB初期化失敗", "データベース初期化に失敗しました。ログを確認してください。")
+            return
         self.settings_view._save()
         QTimer.singleShot(0, self._load_races_or_stop)
         QMessageBox.information(self, "DB初期化", "データベースを初期化しました。")
