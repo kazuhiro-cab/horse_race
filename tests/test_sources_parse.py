@@ -32,19 +32,12 @@ def test_jra_build_records_from_html_allows_null_optional_fields():
     assert row["surface"] is None
 
 
-def test_nar_build_records_from_json_extracts_required_fields():
+def test_nar_build_records_from_html_extracts_fields():
     src = NarSource()
-    payloads = [
-        {
-            "venue": "大井",
-            "raceNo": "9R",
-            "course": "ダート 1200m",
-            "going": "稍重",
-            "start": "18:20",
-            "field": "12頭",
-        }
-    ]
-    rows = src._build_records_from_json(payloads, "2026-03-01")
+    html = """
+    <li>大井 9R ダート 1200m 馬場:稍重 18:20 12頭</li>
+    """
+    rows = src._build_records_from_html([html], "2026-03-01")
     assert rows
     row = rows[0]
     assert row["venue"] == "大井"
@@ -54,3 +47,15 @@ def test_nar_build_records_from_json_extracts_required_fields():
     assert row["going"] == "稍重"
     assert row["start_time"] == "18:20"
     assert row["field_size"] == 12
+
+
+def test_nar_build_records_from_html_allows_null_optional_fields():
+    src = NarSource()
+    html = "<li>門別 2R</li>"
+    rows = src._build_records_from_html([html], "2026-03-01")
+    assert rows
+    row = rows[0]
+    assert row["venue"] == "門別"
+    assert row["race_no"] == 2
+    assert row["distance_m"] is None
+    assert row["surface"] is None
