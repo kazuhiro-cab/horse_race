@@ -5,12 +5,12 @@ import sys
 from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QTabWidget
 
 from app import db
-from app.pipeline.predict import predict_race
 from app.gui.backtest_view import BacktestView
 from app.gui.predict_view import PredictView
 from app.gui.race_list_view import RaceListView
 from app.gui.scheduler_view import SchedulerView
 from app.gui.settings_view import SettingsView
+from app.pipeline.predict import predict_race
 
 
 class MainWindow(QMainWindow):
@@ -36,11 +36,34 @@ class MainWindow(QMainWindow):
         self.race_list.race_selected.connect(self._predict_selected_race)
         self.race_list.run_auto_prediction.connect(self._run_auto_prediction)
         self.settings_view.reset_db_requested.connect(self._reset_database)
+
         self.settings_view._save()
+        self._load_races_with_fallback()
+
+    def _load_races_with_fallback(self):
+        settings = self.settings_view.get_settings()
         try:
-            self.race_list.load_races(use_mock=self.settings_view.get_settings().offline_mode)
-        except Exception:
-            QMessageBox.critical(self, "取得失敗", "実データの取得に失敗しました。ネットワーク接続を確認してください")
+            self.race_list.load_races(use_mock=settings.offline_mode)
+        except Exception as e:
+            if settings.offline_mode:
+                QMessageBox.critical(self, "取得失敗", f"オフラインデータの取得に失敗しました。\n{e}")
+                return
+
+            QMessageBox.warning(
+                self,
+                "取得失敗",
+                "実データの取得に失敗しました。オフラインモードへ切り替えて再試行します。",
+            )
+            self.settings_view.set_offline_mode(True)
+            try:
+                self.race_list.load_races(use_mock=True)
+                QMessageBox.information(self, "オフラインモード", "テスト用データを読み込みました。")
+            except Exception as e2:
+                QMessageBox.critical(
+                    self,
+                    "取得失敗",
+                    f"実データ/オフラインデータの両方で取得に失敗しました。\n{e2}",
+                )
 
     def _predict_selected_race(self, race: dict):
         settings = self.settings_view.get_settings()
@@ -57,10 +80,7 @@ class MainWindow(QMainWindow):
     def _reset_database(self):
         db.reset_db()
         self.settings_view._save()
-        try:
-            self.race_list.load_races(use_mock=self.settings_view.get_settings().offline_mode)
-        except Exception:
-            QMessageBox.critical(self, "取得失敗", "実データの取得に失敗しました。ネットワーク接続を確認してください")
+        self._load_races_with_fallback()
         QMessageBox.information(self, "DB初期化", "データベースを初期化しました。")
 
 

@@ -17,6 +17,7 @@ class AppSettings:
 
 class SettingsView(QWidget):
     reset_db_requested = Signal()
+
     def __init__(self):
         super().__init__()
         self._settings = AppSettings()
@@ -70,3 +71,8 @@ class SettingsView(QWidget):
 
     def get_settings(self) -> AppSettings:
         return self._settings
+
+    def set_offline_mode(self, enabled: bool):
+        self.offline_mode.setChecked(enabled)
+        self._save()
+
