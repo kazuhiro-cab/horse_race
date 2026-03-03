@@ -98,8 +98,9 @@ class MainWindow(QMainWindow):
         def _on_fail(msg: str):
             failed["value"] = True
             self._logger.error(msg)
-            self._set_status(f"エラー: {on_fail_title}")
-            QMessageBox.critical(self, on_fail_title, msg.splitlines()[-1] if msg else on_fail_title)
+            reason = msg.splitlines()[-1] if msg else on_fail_title
+            self._set_status(f"エラー: {reason}")
+            QMessageBox.critical(self, on_fail_title, reason)
 
         worker.failed.connect(_on_fail)
 
