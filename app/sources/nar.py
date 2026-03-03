@@ -205,10 +205,9 @@ class NarSource(BaseSource):
                         self._logger.exception("NAR RaceList parse failed: %s", u)
                         raise RuntimeError(f"NARレースページ解析に失敗しました: {u} ({exc})") from exc
                 browser.close()
-        except Exception as exc:
+        except Exception as e:
             self._logger.exception("NAR fetch_race_list failed")
-            tail = visited_urls[-1] if visited_urls else "(未到達)"
-            raise RuntimeError(f"NAR実データ取得に失敗しました。最終アクセス先: {tail}") from exc
+            raise RuntimeError(f"NARデータの取得に失敗しました: {e}") from e
 
         out = []
         seen = set()

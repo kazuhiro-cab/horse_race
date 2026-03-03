@@ -69,6 +69,10 @@ class RaceListView(QWidget):
         races = sorted(races, key=lambda r: (r["org"], r["venue"], r["race_no"]))
         self._races = races
         self.table.setRowCount(len(races))
+        if not races:
+            self.table.setRowCount(1)
+            self.table.setItem(0, 0, QTableWidgetItem("データなし（取得失敗またはレースなし）"))
+            return
         current_group = ""
         for i, r in enumerate(races):
             group = f"{r['org']}:{r['venue']}"

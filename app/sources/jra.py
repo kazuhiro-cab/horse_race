@@ -223,10 +223,9 @@ class JraSource(BaseSource):
                         self._logger.exception("JRA race page parse failed: %s", u)
                         raise RuntimeError(f"JRAレースページ解析に失敗しました: {u} ({exc})") from exc
                 browser.close()
-        except Exception as exc:
+        except Exception as e:
             self._logger.exception("JRA fetch_race_list failed")
-            tail = visited_urls[-1] if visited_urls else "(未到達)"
-            raise RuntimeError(f"JRA実データ取得に失敗しました。最終アクセス先: {tail}") from exc
+            raise RuntimeError(f"JRAデータの取得に失敗しました: {e}") from e
 
         # venue/race_no missingは警告スキップ
         out = []

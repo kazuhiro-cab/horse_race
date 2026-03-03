@@ -27,6 +27,8 @@ def fetch_for_date(date: str, org: str = "all", progress_callback=None) -> None:
 
     for org_code in orgs:
         src = src_map[org_code]
+        if progress_callback:
+            progress_callback(f"レース情報取得中...（{org_code}）")
         races = src.fetch_race_list(date, org_code, progress_callback=progress_callback)
         for r in races:
             r["org"] = org_to_ja(r["org"])
