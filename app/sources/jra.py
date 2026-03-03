@@ -153,6 +153,7 @@ class JraSource(BaseSource):
         self._throttle()
         rows: list[dict] = []
         ymd = datetime.strptime(date, "%Y-%m-%d").strftime("%Y%m%d")
+        visited_urls: list[str] = []
 
         try:
             from playwright.sync_api import sync_playwright
@@ -187,8 +188,12 @@ class JraSource(BaseSource):
                     if "accessD.html?CNAME=" in u and u not in links:
                         links.append(u)
 
+                if not links:
+                    raise RuntimeError("JRA開催ページリンクを取得できませんでした（accessD.html の導線が見つかりません）。")
+
                 # ページネーション相当（リンク網羅）
                 for u in links:
+                    visited_urls.append(u)
                     if progress_callback:
                         progress_callback("レース情報取得中...（JRA race page）")
                         progress_callback(f"アクセス中: {u}")
@@ -199,25 +204,28 @@ class JraSource(BaseSource):
                         self._logger.info("JRA race HTML (%s): %s", u, race_html)
                         parsed = self._build_records_from_html([race_html], date)
                         if not parsed:
-                            continue
-                        row = parsed[0]
-                        self._result_url_cache[row["race_key"]] = u.replace("accessD.html", "accessS.html")
-                        if row["date"] != date:
-                            # レースページに別日情報が混在する可能性があるため文字列一致を優先
-                            body = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", race_html))
-                            if ymd not in body and date.replace("-", "年", 1).replace("-", "月", 1)[:7] not in body:
-                                continue
-                        self._parse_entries_and_odds(row["race_key"], race_html)
-                        if not row.get("field_size"):
-                            row["field_size"] = len(self._entries_cache.get(row["race_key"], [])) or None
-                        rows.append(row)
-                    except Exception:
+                            raise RuntimeError(f"JRAレース情報の解析結果が空です: {u}")
+
+                        body = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", race_html))
+                        for row in parsed:
+                            if row["date"] != date:
+                                # レースページに別日情報が混在する可能性があるため文字列一致を優先
+                                if ymd not in body and date.replace("-", "年", 1).replace("-", "月", 1)[:7] not in body:
+                                    continue
+                            self._result_url_cache[row["race_key"]] = u.replace("accessD.html", "accessS.html")
+                            self._parse_entries_and_odds(row["race_key"], race_html)
+                            if not row.get("field_size"):
+                                row["field_size"] = len(self._entries_cache.get(row["race_key"], [])) or None
+                            rows.append(row)
+                            if progress_callback:
+                                progress_callback(f"レース情報取得中...（JRA {row['venue']} {row['race_no']}R）")
+                    except Exception as exc:
                         self._logger.exception("JRA race page parse failed: %s", u)
-                        continue
+                        raise RuntimeError(f"JRAレースページ解析に失敗しました: {u} ({exc})") from exc
                 browser.close()
-        except Exception:
+        except Exception as e:
             self._logger.exception("JRA fetch_race_list failed")
-            return []
+            raise RuntimeError(f"JRAデータの取得に失敗しました: {e}") from e
 
         # venue/race_no missingは警告スキップ
         out = []
@@ -231,6 +239,9 @@ class JraSource(BaseSource):
                 continue
             seen.add(key)
             out.append(r)
+        if not out:
+            last_url = visited_urls[-1] if visited_urls else "https://www.jra.go.jp/JRADB/accessD.html"
+            raise RuntimeError(f"JRA実データ取得結果が空です。最終アクセス先: {last_url}")
         return sorted(out, key=lambda x: (x["venue"], x["race_no"]))
 
     def fetch_entries(self, race_key: str) -> list[dict]:

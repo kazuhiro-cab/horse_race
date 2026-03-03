@@ -119,7 +119,12 @@ class MainWindow(QMainWindow):
 
     def _load_races_async(self):
         self._set_status("レース情報取得中...")
-        self._run_worker(self.race_list.load_races, on_success=lambda _: None, on_fail_title="取得失敗", done_text="完了")
+        self._run_worker(
+            self.race_list.load_races,
+            on_success=lambda _: None,
+            on_fail_title="レース情報取得失敗",
+            done_text="取得完了",
+        )
 
     def _predict_selected_race(self, race: dict):
         settings = self.settings_view.get_settings()

@@ -142,6 +142,7 @@ class NarSource(BaseSource):
     def fetch_race_list(self, date: str, org: str, progress_callback=None) -> list[dict]:
         self._throttle()
         rows: list[dict] = []
+        visited_urls: list[str] = []
         try:
             from playwright.sync_api import sync_playwright
 
@@ -164,8 +165,11 @@ class NarSource(BaseSource):
                 self._logger.info("NAR TodayRaceInfoTop HTML: %s", top_html)
 
                 links = self._race_list_links(top_html, date)
+                if not links:
+                    raise RuntimeError("NAR開催ページリンクを取得できませんでした（RaceList導線が見つかりません）。")
 
                 for u in links:
+                    visited_urls.append(u)
                     if progress_callback:
                         parsed = urlparse(u)
                         q = parse_qs(parsed.query)
@@ -177,7 +181,13 @@ class NarSource(BaseSource):
                         page.wait_for_timeout(600)
                         race_html = page.content()
                         self._logger.info("NAR RaceList HTML (%s): %s", u, race_html)
-                        rows.extend(self._build_records_from_html([race_html], date))
+                        parsed_rows = self._build_records_from_html([race_html], date)
+                        if not parsed_rows:
+                            raise RuntimeError(f"NARレース情報の解析結果が空です: {u}")
+                        rows.extend(parsed_rows)
+                        if progress_callback:
+                            for rr in parsed_rows:
+                                progress_callback(f"レース情報取得中...（NAR {rr['venue']} {rr['race_no']}R）")
                         # 成績リンクをキャッシュ
                         for href in re.findall(r'href=["\']([^"\']+)["\']', race_html):
                             ru = urljoin("https://www.keiba.go.jp", html.unescape(href))
@@ -191,13 +201,13 @@ class NarSource(BaseSource):
                                 if int(rno) == int(rr["race_no"]):
                                     self._result_url_cache[rr["race_key"]] = ru
 
-                    except Exception:
+                    except Exception as exc:
                         self._logger.exception("NAR RaceList parse failed: %s", u)
-                        continue
+                        raise RuntimeError(f"NARレースページ解析に失敗しました: {u} ({exc})") from exc
                 browser.close()
-        except Exception:
+        except Exception as e:
             self._logger.exception("NAR fetch_race_list failed")
-            return []
+            raise RuntimeError(f"NARデータの取得に失敗しました: {e}") from e
 
         out = []
         seen = set()
@@ -210,6 +220,9 @@ class NarSource(BaseSource):
                 continue
             seen.add(key)
             out.append(r)
+        if not out:
+            last_url = visited_urls[-1] if visited_urls else "https://www.keiba.go.jp/KeibaWeb/TodayRaceInfo/RaceList"
+            raise RuntimeError(f"NAR実データ取得結果が空です。最終アクセス先: {last_url}")
         return sorted(out, key=lambda x: (x["venue"], x["race_no"]))
 
     def fetch_entries(self, race_key: str) -> list[dict]:
