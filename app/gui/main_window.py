@@ -90,11 +90,13 @@ class MainWindow(QMainWindow):
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
         worker.progressed.connect(self._set_status)
+        failed = {"value": False}
 
         if on_success is not None:
             worker.succeeded.connect(on_success)
 
         def _on_fail(msg: str):
+            failed["value"] = True
             self._logger.error(msg)
             self._set_status(f"エラー: {on_fail_title}")
             QMessageBox.critical(self, on_fail_title, msg.splitlines()[-1] if msg else on_fail_title)
@@ -102,7 +104,8 @@ class MainWindow(QMainWindow):
         worker.failed.connect(_on_fail)
 
         def _finish():
-            self._set_status(done_text)
+            if not failed["value"]:
+                self._set_status(done_text)
             thread.quit()
             thread.wait()
             try:

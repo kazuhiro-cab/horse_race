@@ -113,11 +113,35 @@ class NarSource(BaseSource):
             )
         return out
 
+    def _race_list_links(self, top_html: str, date: str) -> list[str]:
+        target_slash = date.replace("-", "/")
+        links: list[str] = []
+        for href in re.findall(r'href=["\']([^"\']+)["\']', top_html):
+            u = urljoin("https://www.keiba.go.jp", html.unescape(href))
+            if "/KeibaWeb/TodayRaceInfo/RaceList" not in u:
+                continue
+            q = parse_qs(urlparse(u).query)
+            d = q.get("k_raceDate", [""])[0].replace("%2f", "/").replace("%2F", "/")
+            if d and d != target_slash:
+                continue
+            if u not in links:
+                links.append(u)
+
+        baba_codes = set(re.findall(r'k_babaCode=([0-9]{2})', top_html))
+        if not baba_codes:
+            baba_codes.update(re.findall(r'value=["\']([0-9]{2})["\']', top_html))
+        for code in sorted(baba_codes):
+            u = (
+                "https://www.keiba.go.jp/KeibaWeb/TodayRaceInfo/RaceList"
+                f"?k_raceDate={target_slash}&k_babaCode={code}"
+            )
+            if u not in links:
+                links.append(u)
+        return links
+
     def fetch_race_list(self, date: str, org: str, progress_callback=None) -> list[dict]:
         self._throttle()
         rows: list[dict] = []
-        target_slash = date.replace("-", "/")
-
         try:
             from playwright.sync_api import sync_playwright
 
@@ -126,29 +150,28 @@ class NarSource(BaseSource):
                 page = browser.new_page()
 
                 # 指定URLそのものにもアクセスしてHTML全文を取得
+                if progress_callback:
+                    progress_callback("レース情報取得中...（NAR RaceList 入口）")
+                    progress_callback("アクセス中: https://www.keiba.go.jp/KeibaWeb/TodayRaceInfo/RaceList")
                 page.goto("https://www.keiba.go.jp/KeibaWeb/TodayRaceInfo/RaceList", wait_until="domcontentloaded", timeout=30000)
                 self._logger.info("NAR RaceList HTML (direct): %s", page.content())
 
+                if progress_callback:
+                    progress_callback("アクセス中: https://www.keiba.go.jp/KeibaWeb/TodayRaceInfo/TodayRaceInfoTop")
                 page.goto("https://www.keiba.go.jp/KeibaWeb/TodayRaceInfo/TodayRaceInfoTop", wait_until="domcontentloaded", timeout=30000)
                 page.wait_for_selector("a[href*='/KeibaWeb/TodayRaceInfo/RaceList']", timeout=15000)
                 top_html = page.content()
                 self._logger.info("NAR TodayRaceInfoTop HTML: %s", top_html)
 
-                links = []
-                for href in re.findall(r'href=["\']([^"\']+)["\']', top_html):
-                    u = urljoin("https://www.keiba.go.jp", html.unescape(href))
-                    if "/KeibaWeb/TodayRaceInfo/RaceList" not in u:
-                        continue
-                    q = parse_qs(urlparse(u).query)
-                    d = q.get("k_raceDate", [""])[0].replace("%2f", "/").replace("%2F", "/")
-                    if d and d != target_slash:
-                        continue
-                    if u not in links:
-                        links.append(u)
+                links = self._race_list_links(top_html, date)
 
                 for u in links:
                     if progress_callback:
-                        progress_callback(f"レース情報取得中...（{u}）")
+                        parsed = urlparse(u)
+                        q = parse_qs(parsed.query)
+                        baba = q.get("k_babaCode", ["?"])[0]
+                        progress_callback(f"レース情報取得中...（NAR RaceList baba={baba}）")
+                        progress_callback(f"アクセス中: {u}")
                     try:
                         page.goto(u, wait_until="domcontentloaded", timeout=30000)
                         page.wait_for_timeout(600)

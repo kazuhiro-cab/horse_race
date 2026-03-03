@@ -160,14 +160,24 @@ class JraSource(BaseSource):
             with sync_playwright() as pw:
                 browser = pw.chromium.launch(headless=True)
                 page = browser.new_page()
+                if progress_callback:
+                    progress_callback("レース情報取得中...（JRA calendar）")
+                    progress_callback("アクセス中: https://www.jra.go.jp/keiba/calendar/")
                 page.goto("https://www.jra.go.jp/keiba/calendar/", wait_until="domcontentloaded", timeout=30000)
-                page.wait_for_selector("a[onclick*='accessD.html']", timeout=15000)
+                # JRA側は該当リンクが hidden 配下にあることがあるため、visible を要求しない。
+                page.wait_for_selector("a[onclick*='accessD.html'], [onclick*='accessD.html']", state="attached", timeout=15000)
                 self._logger.info("JRA calendar HTML: %s", page.content())
 
                 # カレンダーから出馬表ページへ遷移
-                page.evaluate("doAction('/JRADB/accessD.html','pw01dli00/F3')")
-                page.wait_for_load_state("domcontentloaded")
-                page.wait_for_timeout(1200)
+                try:
+                    page.evaluate("doAction('/JRADB/accessD.html','pw01dli00/F3')")
+                    page.wait_for_load_state("domcontentloaded")
+                    page.wait_for_timeout(1200)
+                except Exception:
+                    # JS導線が変わった場合は直接アクセスへフォールバック
+                    if progress_callback:
+                        progress_callback("アクセス中: https://www.jra.go.jp/JRADB/accessD.html")
+                    page.goto("https://www.jra.go.jp/JRADB/accessD.html", wait_until="domcontentloaded", timeout=30000)
                 select_html = page.content()
                 self._logger.info("JRA accessD selection HTML: %s", select_html)
 
@@ -180,7 +190,8 @@ class JraSource(BaseSource):
                 # ページネーション相当（リンク網羅）
                 for u in links:
                     if progress_callback:
-                        progress_callback(f"レース情報取得中...（{u}）")
+                        progress_callback("レース情報取得中...（JRA race page）")
+                        progress_callback(f"アクセス中: {u}")
                     try:
                         page.goto(u, wait_until="domcontentloaded", timeout=30000)
                         page.wait_for_selector("tr", timeout=10000)
