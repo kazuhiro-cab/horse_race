@@ -13,6 +13,7 @@ from app.pipeline.fetch import fetch_for_date, snapshot_odds
 class RaceListView(QWidget):
     race_selected = Signal(dict)
     run_auto_prediction = Signal()
+    refresh_requested = Signal()
 
     def __init__(self):
         super().__init__()
@@ -24,7 +25,7 @@ class RaceListView(QWidget):
         self.org.addItems(["全主催", "JRA", "地方競馬"])
 
         self.refresh_btn = QPushButton("レース一覧更新")
-        self.refresh_btn.clicked.connect(self.load_races)
+        self.refresh_btn.clicked.connect(self.refresh_requested.emit)
         self.auto_btn = QPushButton("全自動予想")
         self.auto_btn.clicked.connect(self.run_auto_prediction.emit)
 
@@ -55,13 +56,13 @@ class RaceListView(QWidget):
             by_group.setdefault((r["org"], r["venue"]), set()).add(int(r["race_no"]))
         return any(len(v) < 12 for v in by_group.values())
 
-    def load_races(self):
+    def load_races(self, progress_callback=None):
         d = self._selected_date()
         org = self.org.currentText()
         db.init_db()
         races = db.fetch_races(date=d, org=org)
         if self._looks_incomplete(races):
-            fetch_for_date(d, org_to_en(org))
+            fetch_for_date(d, org_to_en(org), progress_callback=progress_callback)
             snapshot_odds(d, mode="前日最終", org=org)
             races = db.fetch_races(date=d, org=org)
 

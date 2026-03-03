@@ -17,6 +17,7 @@ _GOING_VALUES = ("良", "稍重", "重", "不良")
 class NarSource(BaseSource):
     def __init__(self):
         self._logger = logging.getLogger(__name__)
+        self._result_url_cache: dict[str, str] = {}
 
     def _throttle(self):
         time.sleep(REQUEST_INTERVAL_SEC)
@@ -112,7 +113,7 @@ class NarSource(BaseSource):
             )
         return out
 
-    def fetch_race_list(self, date: str, org: str) -> list[dict]:
+    def fetch_race_list(self, date: str, org: str, progress_callback=None) -> list[dict]:
         self._throttle()
         rows: list[dict] = []
         target_slash = date.replace("-", "/")
@@ -146,12 +147,27 @@ class NarSource(BaseSource):
                         links.append(u)
 
                 for u in links:
+                    if progress_callback:
+                        progress_callback(f"レース情報取得中...（{u}）")
                     try:
                         page.goto(u, wait_until="domcontentloaded", timeout=30000)
                         page.wait_for_timeout(600)
                         race_html = page.content()
                         self._logger.info("NAR RaceList HTML (%s): %s", u, race_html)
                         rows.extend(self._build_records_from_html([race_html], date))
+                        # 成績リンクをキャッシュ
+                        for href in re.findall(r'href=["\']([^"\']+)["\']', race_html):
+                            ru = urljoin("https://www.keiba.go.jp", html.unescape(href))
+                            if "RaceMarkTable" not in ru and "RaceResult" not in ru:
+                                continue
+                            q2 = parse_qs(urlparse(ru).query)
+                            rno = q2.get("k_raceNo", [""])[0]
+                            if not rno:
+                                continue
+                            for rr in self._build_records_from_html([race_html], date):
+                                if int(rno) == int(rr["race_no"]):
+                                    self._result_url_cache[rr["race_key"]] = ru
+
                     except Exception:
                         self._logger.exception("NAR RaceList parse failed: %s", u)
                         continue
@@ -183,4 +199,31 @@ class NarSource(BaseSource):
         return {}
 
     def fetch_results(self, race_key: str) -> dict:
-        return {"status": "未確定", "payouts": {}}
+        url = self._result_url_cache.get(race_key)
+        if not url:
+            return {"status": "未確定", "payouts": {}}
+        try:
+            from playwright.sync_api import sync_playwright
+
+            with sync_playwright() as pw:
+                browser = pw.chromium.launch(headless=True)
+                page = browser.new_page()
+                page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                page.wait_for_timeout(800)
+                html_text = page.content()
+                browser.close()
+        except Exception:
+            self._logger.exception("NAR result fetch failed: %s", race_key)
+            return {"status": "未確定", "payouts": {}}
+
+        body = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html_text))
+        payouts: dict[str, dict] = {
+            "単勝": {}, "複勝": {}, "枠連": {}, "馬連": {}, "馬単": {}, "ワイド": {}, "三連複": {}, "三連単": {}
+        }
+        market_map = {"単勝":"単勝","複勝":"複勝","枠複":"枠連","馬複":"馬連","馬単":"馬単","ワイド":"ワイド","3連複":"三連複","3連単":"三連単"}
+        for mk, out in market_map.items():
+            for m in re.finditer(rf"{re.escape(mk)}\s+([0-9\-]+)\s+([0-9,]+)円", body):
+                payouts[out][m.group(1)] = float(m.group(2).replace(",", ""))
+
+        status = "確定" if any(payouts[k] for k in payouts) else "未確定"
+        return {"status": status, "payouts": payouts}

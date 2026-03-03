@@ -18,6 +18,7 @@ class JraSource(BaseSource):
         self._logger = logging.getLogger(__name__)
         self._entries_cache: dict[str, list[dict]] = {}
         self._win_odds_cache: dict[str, dict] = {}
+        self._result_url_cache: dict[str, str] = {}
 
     def _throttle(self):
         time.sleep(REQUEST_INTERVAL_SEC)
@@ -148,7 +149,7 @@ class JraSource(BaseSource):
         self._entries_cache[race_key] = sorted(entries, key=lambda x: x["number"])
         self._win_odds_cache[race_key] = win_odds
 
-    def fetch_race_list(self, date: str, org: str) -> list[dict]:
+    def fetch_race_list(self, date: str, org: str, progress_callback=None) -> list[dict]:
         self._throttle()
         rows: list[dict] = []
         ymd = datetime.strptime(date, "%Y-%m-%d").strftime("%Y%m%d")
@@ -178,6 +179,8 @@ class JraSource(BaseSource):
 
                 # ページネーション相当（リンク網羅）
                 for u in links:
+                    if progress_callback:
+                        progress_callback(f"レース情報取得中...（{u}）")
                     try:
                         page.goto(u, wait_until="domcontentloaded", timeout=30000)
                         page.wait_for_selector("tr", timeout=10000)
@@ -187,6 +190,7 @@ class JraSource(BaseSource):
                         if not parsed:
                             continue
                         row = parsed[0]
+                        self._result_url_cache[row["race_key"]] = u.replace("accessD.html", "accessS.html")
                         if row["date"] != date:
                             # レースページに別日情報が混在する可能性があるため文字列一致を優先
                             body = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", race_html))
@@ -230,4 +234,31 @@ class JraSource(BaseSource):
         return {}
 
     def fetch_results(self, race_key: str) -> dict:
-        return {"status": "未確定", "payouts": {}}
+        url = self._result_url_cache.get(race_key)
+        if not url:
+            return {"status": "未確定", "payouts": {}}
+        try:
+            from playwright.sync_api import sync_playwright
+
+            with sync_playwright() as pw:
+                browser = pw.chromium.launch(headless=True)
+                page = browser.new_page()
+                page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                page.wait_for_timeout(800)
+                html_text = page.content()
+                browser.close()
+        except Exception:
+            self._logger.exception("JRA result fetch failed: %s", race_key)
+            return {"status": "未確定", "payouts": {}}
+
+        body = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html_text))
+        payouts: dict[str, dict] = {
+            "単勝": {}, "複勝": {}, "枠連": {}, "馬連": {}, "馬単": {}, "ワイド": {}, "三連複": {}, "三連単": {}, "WIN5": {}
+        }
+        market_map = {"単勝":"単勝","複勝":"複勝","枠連":"枠連","馬連":"馬連","馬単":"馬単","ワイド":"ワイド","3連複":"三連複","3連単":"三連単","WIN5":"WIN5"}
+        for mk_jp, out_key in market_map.items():
+            for m in re.finditer(rf"{re.escape(mk_jp)}\s+([0-9\-]+)\s+([0-9,]+)円", body):
+                payouts[out_key][m.group(1)] = float(m.group(2).replace(",", ""))
+
+        status = "確定" if any(payouts[k] for k in payouts) else "未確定"
+        return {"status": status, "payouts": payouts}

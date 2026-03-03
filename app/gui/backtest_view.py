@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from PySide6.QtCharts import QChart, QChartView, QLineSeries, QValueAxis
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QDateEdit,
     QHBoxLayout,
@@ -14,10 +14,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.pipeline.backtest import run_backtest
-
 
 class BacktestView(QWidget):
+    run_requested = Signal(str, str, str)
+
     def __init__(self):
         super().__init__()
         self.from_date = QDateEdit()
@@ -27,7 +27,7 @@ class BacktestView(QWidget):
         self.to_date.setDate(date.today())
         self.to_date.setCalendarPopup(True)
         self.run_btn = QPushButton("実行")
-        self.run_btn.clicked.connect(self.run_backtest)
+        self.run_btn.clicked.connect(self._emit_run)
 
         self.table = QTableWidget(0, 2)
         self.table.setHorizontalHeaderLabels(["指標", "値"])
@@ -46,12 +46,10 @@ class BacktestView(QWidget):
         layout.addWidget(self.chart_view)
         self.setLayout(layout)
 
-    def run_backtest(self):
-        stats = run_backtest(
-            self.from_date.date().toString("yyyy-MM-dd"),
-            self.to_date.date().toString("yyyy-MM-dd"),
-            "all",
-        )
+    def _emit_run(self):
+        self.run_requested.emit(self.from_date.date().toString("yyyy-MM-dd"), self.to_date.date().toString("yyyy-MM-dd"), "all")
+
+    def show_result(self, stats: dict):
         keys = ["的中率", "回収率", "EV推定精度", "1番人気信頼度スコア精度", "凡走リスクスコア精度"]
         self.table.setRowCount(len(keys))
         for i, k in enumerate(keys):

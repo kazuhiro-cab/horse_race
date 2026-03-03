@@ -14,9 +14,11 @@ def _normalize_backtest_range(from_date: str, to_date: str) -> tuple[str, str]:
     return start, end
 
 
-def run_backtest(from_date: str, to_date: str, market: str = "全券種") -> dict:
+def run_backtest(from_date: str, to_date: str, market: str = "全券種", progress_callback=None) -> dict:
     db.init_db()
-    settle_pending_results()
+    if progress_callback:
+        progress_callback("バックテスト実行中...（結果取得中）")
+    settle_pending_results(progress_callback=progress_callback)
     start, end = _normalize_backtest_range(from_date, to_date)
     with db.connect() as con:
         rows = [dict(r) for r in con.execute("SELECT * FROM bankroll_log WHERE logged_at >= ? AND logged_at <= ?", (start, end)).fetchall()]
@@ -25,7 +27,7 @@ def run_backtest(from_date: str, to_date: str, market: str = "全券種") -> dic
         rows = [r for r in rows if r["market"] == market]
 
     total_bet = sum(r["bet_amount"] for r in rows)
-    total_payout = sum(r["payout"] or 0 for r in rows)
+    total_payout = sum((r["payout"] or 0) for r in rows)
     hit = sum(1 for r in rows if r["result"] == "的中")
     n = len(rows)
     stats = {
@@ -46,6 +48,8 @@ def run_backtest(from_date: str, to_date: str, market: str = "全券種") -> dic
             bankroll -= r["bet_amount"]
             bankroll += r["payout"] or 0
             w.writerow([i, bankroll])
+            if progress_callback:
+                progress_callback(f"バックテスト実行中...（{i}/{n}）")
 
     stats["資金推移CSV"] = str(curve)
     return stats

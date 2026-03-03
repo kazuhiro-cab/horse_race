@@ -18,7 +18,7 @@ def _safe_source(org_en: str):
     raise RuntimeError(f"unknown org: {org_en}")
 
 
-def fetch_for_date(date: str, org: str = "all") -> None:
+def fetch_for_date(date: str, org: str = "all", progress_callback=None) -> None:
     db.init_db()
     org_en = org_to_en(org)
     orgs = ["JRA", "NAR"] if org_en.lower() == "all" else [org_en.upper()]
@@ -27,12 +27,15 @@ def fetch_for_date(date: str, org: str = "all") -> None:
 
     for org_code in orgs:
         src = src_map[org_code]
-        races = src.fetch_race_list(date, org_code)
+        races = src.fetch_race_list(date, org_code, progress_callback=progress_callback)
         for r in races:
             r["org"] = org_to_ja(r["org"])
             r["surface"] = SURFACE_EN_TO_JA.get(r.get("surface"), r.get("surface"))
             r["going"] = GOING_EN_TO_JA.get(r.get("going"), r.get("going"))
         races_all.extend(races)
+        if progress_callback:
+            for rr in races:
+                progress_callback(f"レース情報取得中...（{rr.get('venue', '?')}）")
 
     db.upsert_races(races_all)
 
