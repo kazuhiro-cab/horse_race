@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import html
+import logging
 import re
 import time
 from datetime import datetime
-from urllib.parse import urljoin
+from urllib.parse import parse_qs, urljoin, urlparse
 
 from app.config import REQUEST_INTERVAL_SEC
 from app.sources.base import BaseSource
@@ -14,38 +15,14 @@ _GOING_VALUES = ("良", "稍重", "重", "不良")
 
 
 class NarSource(BaseSource):
-    """NAR公式サイトの実データ取得。"""
+    def __init__(self):
+        self._logger = logging.getLogger(__name__)
 
     def _throttle(self):
         time.sleep(REQUEST_INTERVAL_SEC)
 
-    def _open(self, url: str) -> str:
-        from playwright.sync_api import sync_playwright
-
-        pw = sync_playwright().start()
-        browser = pw.chromium.launch(headless=True)
-        page = browser.new_page()
-        try:
-            page.goto(url, wait_until="domcontentloaded", timeout=30000)
-            return page.content()
-        finally:
-            browser.close()
-            pw.stop()
-
-    def _extract_links(self, html_text: str, base: str) -> list[str]:
-        links = []
-        for href in re.findall(r'href=["\']([^"\']+)["\']', html_text):
-            url = urljoin(base, html.unescape(href))
-            if "keiba.go.jp" not in url:
-                continue
-            if "/KeibaWeb/TodayRaceInfo/RaceList" in url and url not in links:
-                links.append(url)
-        return links
-
     def _norm_race_no(self, text: str) -> int | None:
         m = re.search(r"(\d{1,2})\s*R", text, flags=re.IGNORECASE)
-        if not m:
-            m = re.search(r"\b(\d{1,2})\b", text)
         if not m:
             return None
         n = int(m.group(1))
@@ -55,18 +32,15 @@ class NarSource(BaseSource):
         return next((v for v in NAR_VENUES if v in text), None)
 
     def _extract_surface_distance(self, text: str) -> tuple[str | None, int | None]:
-        m = re.search(r"(芝|ダート|障害)\s*([0-9]{3,4})\s*m", text)
+        m = re.search(r"(芝|ダート|障害|直)\s*([0-9]{3,4})\s*m", text)
         if not m:
-            m = re.search(r"([0-9]{3,4})\s*m\s*(芝|ダート|障害)", text)
-            if not m:
-                return None, None
-            return m.group(2), int(m.group(1))
-        return m.group(1), int(m.group(2))
+            return None, None
+        surf = m.group(1)
+        if surf == "直":
+            surf = None
+        return surf, int(m.group(2))
 
     def _extract_going(self, text: str) -> str | None:
-        for g in _GOING_VALUES:
-            if f"馬場:{g}" in text or f"馬場状態:{g}" in text or f"/{g}" in text:
-                return g
         for g in _GOING_VALUES:
             if g in text:
                 return g
@@ -78,18 +52,22 @@ class NarSource(BaseSource):
 
     def _extract_field_size(self, text: str) -> int | None:
         m = re.search(r"(\d{1,2})\s*頭", text)
+        if m:
+            return int(m.group(1))
+        # NAR当日メニューは最後の列が頭数のことがある
+        m = re.search(r"\s(\d{1,2})\s*(?:オッズ|映像|成績|$)", text)
         return int(m.group(1)) if m else None
 
     def _iter_candidate_blocks(self, html_text: str):
-        for m in re.finditer(r"<(tr|li|div)[^>]*>(.*?)</\1>", html_text, flags=re.DOTALL | re.IGNORECASE):
-            block = m.group(2)
-            text = re.sub(r"<[^>]+>", " ", block)
+        for m in re.finditer(r"<(tr|li|div|p|h1|h2)[^>]*>(.*?)</\1>", html_text, flags=re.DOTALL | re.IGNORECASE):
+            text = re.sub(r"<[^>]+>", " ", m.group(2))
             text = re.sub(r"\s+", " ", text).strip()
             if text:
                 yield text
 
     def _build_records_from_html(self, html_pages: list[str], date: str) -> list[dict]:
         records: dict[tuple[str, int], dict] = {}
+        ymd = datetime.strptime(date, "%Y-%m-%d").strftime("%Y%m%d")
 
         for html_text in html_pages:
             for text in self._iter_candidate_blocks(html_text):
@@ -114,11 +92,8 @@ class NarSource(BaseSource):
                 if field_size:
                     rec["field_size"] = field_size
 
-        ymd = datetime.strptime(date, "%Y-%m-%d").strftime("%Y%m%d")
         out = []
         for (venue, race_no), rec in sorted(records.items(), key=lambda x: (x[0][0], x[0][1])):
-            if not rec.get("venue") or not rec.get("race_no"):
-                continue
             out.append(
                 {
                     "race_key": f"NAR-{ymd}-{venue}-{race_no:02d}",
@@ -139,36 +114,64 @@ class NarSource(BaseSource):
 
     def fetch_race_list(self, date: str, org: str) -> list[dict]:
         self._throttle()
+        rows: list[dict] = []
+        target_slash = date.replace("-", "/")
 
-        seed_urls = [
-            "https://www.keiba.go.jp/KeibaWeb/TodayRaceInfo/TodayRaceInfoTop",
-            "https://www.keiba.go.jp/KeibaWeb/TodayRaceInfo/RaceList",
-        ]
-        html_map: dict[str, str] = {}
-        for url in seed_urls:
-            try:
-                html_map[url] = self._open(url)
-            except Exception:
+        try:
+            from playwright.sync_api import sync_playwright
+
+            with sync_playwright() as pw:
+                browser = pw.chromium.launch(headless=True)
+                page = browser.new_page()
+
+                # 指定URLそのものにもアクセスしてHTML全文を取得
+                page.goto("https://www.keiba.go.jp/KeibaWeb/TodayRaceInfo/RaceList", wait_until="domcontentloaded", timeout=30000)
+                self._logger.info("NAR RaceList HTML (direct): %s", page.content())
+
+                page.goto("https://www.keiba.go.jp/KeibaWeb/TodayRaceInfo/TodayRaceInfoTop", wait_until="domcontentloaded", timeout=30000)
+                page.wait_for_selector("a[href*='/KeibaWeb/TodayRaceInfo/RaceList']", timeout=15000)
+                top_html = page.content()
+                self._logger.info("NAR TodayRaceInfoTop HTML: %s", top_html)
+
+                links = []
+                for href in re.findall(r'href=["\']([^"\']+)["\']', top_html):
+                    u = urljoin("https://www.keiba.go.jp", html.unescape(href))
+                    if "/KeibaWeb/TodayRaceInfo/RaceList" not in u:
+                        continue
+                    q = parse_qs(urlparse(u).query)
+                    d = q.get("k_raceDate", [""])[0].replace("%2f", "/").replace("%2F", "/")
+                    if d and d != target_slash:
+                        continue
+                    if u not in links:
+                        links.append(u)
+
+                for u in links:
+                    try:
+                        page.goto(u, wait_until="domcontentloaded", timeout=30000)
+                        page.wait_for_timeout(600)
+                        race_html = page.content()
+                        self._logger.info("NAR RaceList HTML (%s): %s", u, race_html)
+                        rows.extend(self._build_records_from_html([race_html], date))
+                    except Exception:
+                        self._logger.exception("NAR RaceList parse failed: %s", u)
+                        continue
+                browser.close()
+        except Exception:
+            self._logger.exception("NAR fetch_race_list failed")
+            return []
+
+        out = []
+        seen = set()
+        for r in rows:
+            if not r.get("venue") or not r.get("race_no"):
+                self._logger.warning("NAR skipped row due to missing venue/race_no: %s", r)
                 continue
-
-        for base, html_text in list(html_map.items()):
-            for link in self._extract_links(html_text, base)[:200]:
-                if link in html_map:
-                    continue
-                if f"k_raceDate={date.replace('-', '%2f')}" not in link.replace('%2F', '%2f') and f"k_raceDate={date.replace('-', '/')}" not in link:
-                    continue
-                try:
-                    html_map[link] = self._open(link)
-                except Exception:
-                    continue
-
-        if not html_map:
-            raise RuntimeError("NAR公式サイト接続失敗")
-
-        races = self._build_records_from_html(list(html_map.values()), date)
-        if not races:
-            raise RuntimeError("NAR開催場名またはレース番号を抽出できませんでした")
-        return races
+            key = (r["venue"], r["race_no"])
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(r)
+        return sorted(out, key=lambda x: (x["venue"], x["race_no"]))
 
     def fetch_entries(self, race_key: str) -> list[dict]:
         return []
